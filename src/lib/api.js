@@ -1,12 +1,15 @@
 
 const API_URL = (
-  process.env.BACKEND_URL || "http://localhost:5000"
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  process.env.BACKEND_URL ||
+  ""
 ).replace(/\/+$/, "");
 
 // Common API Request Function
 const apiRequest = async (endpoint, options = {}) => {
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const url = `${API_URL}${endpoint}`;
+    const response = await fetch(url, {
       credentials: "include",
       ...options,
       headers: {
@@ -15,11 +18,23 @@ const apiRequest = async (endpoint, options = {}) => {
       },
     });
 
-    const data = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    let data = null;
+
+    if (contentType.includes("application/json")) {
+      const text = await response.text();
+      data = text ? JSON.parse(text) : {};
+    } else {
+      const text = await response.text();
+      data = { message: text || response.statusText };
+    }
 
     if (!response.ok) {
-      const error = new Error(data.message || "Something went wrong");
+      const error = new Error(
+        data?.message || `Request failed with status ${response.status}`
+      );
       error.status = response.status;
+      error.data = data;
       throw error;
     }
 
